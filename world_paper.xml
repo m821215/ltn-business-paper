@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <rss version="2.0">
   <channel>
-    <title>自由時報 - 國際報紙版 (含圖)</title>
+    <title>自由時報 - 國際</title>
     <link>https://news.ltn.com.tw/list/newspaper</link>
     <description>自動過濾自由時報國際分類網址包含 /paper/ 的新聞並嵌入原圖</description>
     <language>zh-TW</language>
-    <lastBuildDate>Sun, 22 Nov 2026 10:13:16 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 10:27:58 +0800</lastBuildDate>
     <item>
       <title>管控軍用AI 美中有共識</title>
       <link>https://news.ltn.com.tw/news/world/paper/1779441</link>

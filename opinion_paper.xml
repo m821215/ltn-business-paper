@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <rss version="2.0">
   <channel>
-    <title>自由時報 - 評論報紙版 (含圖)</title>
+    <title>自由時報 - 評論</title>
     <link>https://news.ltn.com.tw/list/newspaper</link>
     <description>自動過濾自由時報評論分類網址包含 /paper/ 的新聞並嵌入原圖</description>
     <language>zh-TW</language>
-    <lastBuildDate>Sun, 22 Nov 2026 10:13:01 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 10:27:46 +0800</lastBuildDate>
     <item>
       <title>自由廣場》市民得用膝蓋 提醒市府有人苦等</title>
       <link>https://talk.ltn.com.tw/article/paper/1779413</link>

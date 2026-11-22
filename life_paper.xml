@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <rss version="2.0">
   <channel>
-    <title>自由時報 - 生活報紙版 (含圖)</title>
+    <title>自由時報 - 生活</title>
     <link>https://news.ltn.com.tw/list/newspaper</link>
     <description>自動過濾自由時報生活分類網址包含 /paper/ 的新聞並嵌入原圖</description>
     <language>zh-TW</language>
-    <lastBuildDate>Sun, 22 Nov 2026 10:12:52 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 10:27:39 +0800</lastBuildDate>
     <item>
       <title>苗栗建國國中愛樂合唱團 奪3項特優</title>
       <link>https://news.ltn.com.tw/news/life/paper/1779429</link>
