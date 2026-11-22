@@ -3,10 +3,11 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from email.utils import format_datetime
+from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-# 自由時報全分類對照表（產出檔名: (顯示名稱, 原始 RSS 網址)）
+# 自由時報官方 RSS 分類對照表（產出檔名: (顯示名稱, 原始 RSS 網址)）
 FEEDS = {
     "all_paper.xml": ("即時總覽", "https://news.ltn.com.tw/rss/all.xml"),
     "politics_paper.xml": ("政治", "https://news.ltn.com.tw/rss/politics.xml"),
@@ -26,6 +27,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+# 記憶體快取：避免不同分類抓到同一篇文章時重複發送請求
 ARTICLE_CACHE: dict[str, tuple[str, str]] = {}
 
 def clean_xml_text(text: str) -> str:
@@ -35,7 +37,7 @@ def clean_xml_text(text: str) -> str:
     return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
 
 def fetch_article_details(url: str) -> tuple[str, str]:
-    """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文（含記憶體快取）"""
+    """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文（相容新聞版與藝文副刊版）"""
     if url in ARTICLE_CACHE:
         return ARTICLE_CACHE[url]
 
@@ -44,10 +46,12 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         
+        # 擷取新聞主圖
         og_img = soup.find("meta", property="og:image")
         img_url = og_img["content"].strip() if (og_img and og_img.get("content")) else ""
         
-        paragraphs = soup.select("div.text p")
+        # 同時支援一般新聞 (div.text p) 與藝文副刊 (div.article_content p) 的內文結構
+        paragraphs = soup.select("div.text p, div.article_content p, article p")
         clean_texts = [
             p.get_text(strip=True) for p in paragraphs 
             if p.get_text(strip=True) and not p.get("class")
@@ -62,7 +66,50 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         ARTICLE_CACHE[url] = ("", "")
         return "", ""
 
+def build_and_save_rss(output_file: str, title_text: str, site_link: str, desc_text: str, articles: list[dict]):
+    """共用函式：將整理好的文章列表輸出為標準含圖 XML"""
+    rss = ET.Element("rss", version="2.0")
+    channel = ET.SubElement(rss, "channel")
+    ET.SubElement(channel, "title").text = title_text
+    ET.SubElement(channel, "link").text = site_link
+    ET.SubElement(channel, "description").text = desc_text
+    ET.SubElement(channel, "language").text = "zh-TW"
+
+    tz_tw = timezone(timedelta(hours=8))
+    now_rfc822 = format_datetime(datetime.now(tz_tw))
+    ET.SubElement(channel, "lastBuildDate").text = now_rfc822
+
+    for art in articles:
+        img_url, rich_summary = fetch_article_details(art["link"])
+        summary_text = clean_xml_text(rich_summary if rich_summary else art.get("raw_desc", ""))
+        clean_title = clean_xml_text(art["title"])
+        
+        item_el = ET.SubElement(channel, "item")
+        ET.SubElement(item_el, "title").text = clean_title
+        ET.SubElement(item_el, "link").text = art["link"]
+        
+        guid = ET.SubElement(item_el, "guid", isPermaLink="true")
+        guid.text = art["link"]
+        
+        pub_date = art.get("pub_date") or now_rfc822
+        ET.SubElement(item_el, "pubDate").text = pub_date
+
+        if img_url:
+            html_body = f'<p><img src="{img_url}" style="max-width:100%; height:auto;" /></p><p>{summary_text}</p>'
+        else:
+            html_body = f'<p>{summary_text}</p>'
+
+        ET.SubElement(item_el, "description").text = html_body
+
+    ET.indent(rss, space="  ", level=0)
+    xml_bytes = ET.tostring(rss, encoding="utf-8", xml_declaration=True)
+
+    with open(output_file, "wb") as f:
+        f.write(xml_bytes)
+    print(f"已儲存為 {output_file}（共 {len(articles)} 篇）")
+
 def process_single_feed(output_file: str, category_name: str, rss_url: str):
+    """處理官方 RSS 來源並篩選網址包含 /paper/ 的文章"""
     print(f"\n=== 開始處理 [{category_name}] ({rss_url}) ===")
     try:
         resp = requests.get(rss_url, headers=HEADERS, timeout=15)
@@ -85,52 +132,78 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
             })
 
     print(f"[{category_name}] 共篩選出 {len(paper_articles)} 篇報紙新聞")
+    build_and_save_rss(
+        output_file=output_file,
+        title_text=f"自由時報 - {category_name}",
+        site_link="https://news.ltn.com.tw/list/newspaper",
+        desc_text=f"自動過濾自由時報{category_name}分類網址包含 /paper/ 的新聞並嵌入原圖",
+        articles=paper_articles
+    )
 
-    rss = ET.Element("rss", version="2.0")
-    channel = ET.SubElement(rss, "channel")
-    ET.SubElement(channel, "title").text = f"自由時報 - {category_name}"
-    ET.SubElement(channel, "link").text = "https://news.ltn.com.tw/list/newspaper"
-    ET.SubElement(channel, "description").text = f"自動過濾自由時報{category_name}分類網址包含 /paper/ 的新聞並嵌入原圖"
-    ET.SubElement(channel, "language").text = "zh-TW"
+def process_literature_page():
+    """從自由藝文總列表 (newslist) 完整擷取所有包含 /paper/ 的藝文、副刊與家庭版文章"""
+    list_url = "https://art.ltn.com.tw/newslist"
+    output_file = "literature_paper.xml"
+    print(f"\n=== 開始處理 [自由藝文與副刊總覽] ({list_url}) ===")
 
-    tz_tw = timezone(timedelta(hours=8))
-    ET.SubElement(channel, "lastBuildDate").text = format_datetime(datetime.now(tz_tw))
+    try:
+        resp = requests.get(list_url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+    except Exception as e:
+        print(f"[自由藝文] 網頁讀取失敗: {e}")
+        return
 
-    for art in paper_articles:
-        img_url, rich_summary = fetch_article_details(art["link"])
-        summary_text = clean_xml_text(rich_summary if rich_summary else art["raw_desc"])
-        clean_title = clean_xml_text(art["title"])
+    # 移除右側「熱門文章 / 熱門新訊」側邊欄，避免混入舊文章
+    for sidebar in soup.select("div.right, aside, div.hot_news, div.boxTitle"):
+        sidebar.decompose()
+
+    seen_links = set()
+    lit_articles = []
+
+    # 掃描主列表區域中所有包含 /paper/ 的文章連結
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"].strip()
+        if "/paper/" not in href:
+            continue
+
+        full_url = urljoin(list_url, href)
+        if full_url in seen_links:
+            continue
+
+        title_el = a_tag.find(["h2", "h3", "h4", "p"])
+        title = title_el.get_text(strip=True) if title_el else (a_tag.get("title") or a_tag.get_text(strip=True))
         
-        item_el = ET.SubElement(channel, "item")
-        ET.SubElement(item_el, "title").text = clean_title
-        ET.SubElement(item_el, "link").text = art["link"]
-        
-        guid = ET.SubElement(item_el, "guid", isPermaLink="true")
-        guid.text = art["link"]
-        
-        if art["pub_date"]:
-            ET.SubElement(item_el, "pubDate").text = art["pub_date"]
+        if not title or len(title) < 2:
+            continue
 
-        if img_url:
-            html_body = f'<p><img src="{img_url}" style="max-width:100%; height:auto;" /></p><p>{summary_text}</p>'
-        else:
-            html_body = f'<p>{summary_text}</p>'
+        seen_links.add(full_url)
+        lit_articles.append({
+            "title": title,
+            "link": full_url,
+            "pub_date": "",
+            "raw_desc": ""
+        })
 
-        # 直接寫入 HTML 內容，ElementTree 會自動進行標準跳脫，Inoreader 可 100% 正常解析圖片
-        ET.SubElement(item_el, "description").text = html_body
+    # 上限 40 篇以完整涵蓋單日報紙副刊與家庭plus文章量
+    lit_articles = lit_articles[:40]
+    print(f"[自由藝文與副刊] 共擷取出 {len(lit_articles)} 篇報紙版文章")
 
-    # 使用內建 ET.indent 進行排版，不經過 minidom 重新解析，徹底避免 ExpatError
-    ET.indent(rss, space="  ", level=0)
-    xml_bytes = ET.tostring(rss, encoding="utf-8", xml_declaration=True)
-
-    with open(output_file, "wb") as f:
-        f.write(xml_bytes)
-    print(f"[{category_name}] 已儲存為 {output_file}")
+    build_and_save_rss(
+        output_file=output_file,
+        title_text="自由時報 - 藝文副刊",
+        site_link=list_url,
+        desc_text="自動擷取自由藝文總列表包含 /paper/ 的副刊、家庭與藝文報紙文章並嵌入原圖",
+        articles=lit_articles
+    )
 
 def main():
     for output_file, (category_name, rss_url) in FEEDS.items():
         process_single_feed(output_file, category_name, rss_url)
-    print("\n所有分類 XML 全部更新完成！")
+    
+    # 執行自由藝文與副刊網頁爬蟲
+    process_literature_page()
+    print("\n所有分類與藝文副刊 XML 全部更新完成！")
 
 if __name__ == "__main__":
     main()
