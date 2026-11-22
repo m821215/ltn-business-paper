@@ -1,6 +1,6 @@
+import re
 import time
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
 from datetime import datetime, timezone, timedelta
 from email.utils import format_datetime
 import requests
@@ -26,8 +26,13 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-# 快取字典：避免 all.xml 與各分類重複抓取同一篇新聞的網頁
 ARTICLE_CACHE: dict[str, tuple[str, str]] = {}
+
+def clean_xml_text(text: str) -> str:
+    """移除 XML 1.0 不允許的非法控制字元，避免解析失敗"""
+    if not text:
+        return ""
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
 
 def fetch_article_details(url: str) -> tuple[str, str]:
     """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文（含記憶體快取）"""
@@ -50,7 +55,7 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         full_summary = "<br><br>".join(clean_texts[:2]) if clean_texts else ""
         
         ARTICLE_CACHE[url] = (img_url, full_summary)
-        time.sleep(0.25)  # 僅在實際發送網路請求時稍微延遲
+        time.sleep(0.25)
         return img_url, full_summary
     except Exception as e:
         print(f"抓取失敗 ({url}): {e}")
@@ -93,10 +98,11 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
 
     for art in paper_articles:
         img_url, rich_summary = fetch_article_details(art["link"])
-        summary_text = rich_summary if rich_summary else art["raw_desc"]
+        summary_text = clean_xml_text(rich_summary if rich_summary else art["raw_desc"])
+        clean_title = clean_xml_text(art["title"])
         
         item_el = ET.SubElement(channel, "item")
-        ET.SubElement(item_el, "title").text = art["title"]
+        ET.SubElement(item_el, "title").text = clean_title
         ET.SubElement(item_el, "link").text = art["link"]
         
         guid = ET.SubElement(item_el, "guid", isPermaLink="true")
@@ -110,24 +116,15 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
         else:
             html_body = f'<p>{summary_text}</p>'
 
-        ET.SubElement(item_el, "description").text = f"__CDATA_START__{html_body}__CDATA_END__"
+        # 直接寫入 HTML 內容，ElementTree 會自動進行標準跳脫，Inoreader 可 100% 正常解析圖片
+        ET.SubElement(item_el, "description").text = html_body
 
-    rough_string = ET.tostring(rss, encoding="utf-8")
-    reparsed = minidom.parseString(rough_string)
-    pretty_xml = reparsed.toprettyxml(indent="  ", encoding="utf-8").decode("utf-8")
+    # 使用內建 ET.indent 進行排版，不經過 minidom 重新解析，徹底避免 ExpatError
+    ET.indent(rss, space="  ", level=0)
+    xml_bytes = ET.tostring(rss, encoding="utf-8", xml_declaration=True)
 
-    pretty_xml = (
-        pretty_xml
-        .replace("__CDATA_START__", "<![CDATA[")
-        .replace("__CDATA_END__", "]]>")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&amp;", "&")
-    )
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(pretty_xml)
+    with open(output_file, "wb") as f:
+        f.write(xml_bytes)
     print(f"[{category_name}] 已儲存為 {output_file}")
 
 def main():
