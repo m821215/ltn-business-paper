@@ -88,7 +88,7 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
 
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
-    ET.SubElement(channel, "title").text = f"自由時報 - {category_name}報紙版 (含圖)"
+    ET.SubElement(channel, "title").text = f"自由時報 - {category_name}"
     ET.SubElement(channel, "link").text = "https://news.ltn.com.tw/list/newspaper"
     ET.SubElement(channel, "description").text = f"自動過濾自由時報{category_name}分類網址包含 /paper/ 的新聞並嵌入原圖"
     ET.SubElement(channel, "language").text = "zh-TW"
