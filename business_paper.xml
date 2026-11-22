@@ -1,66 +1,66 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <rss version="2.0">
   <channel>
     <title>自由時報 - 財經報紙版 (含圖)</title>
-    <link>https://ec.ltn.com.tw/list/paper</link>
-    <description>自動過濾自由時報財經版網址包含 /paper/ 的新聞並嵌入原圖</description>
+    <link>https://news.ltn.com.tw/list/newspaper</link>
+    <description>自動過濾自由時報財經分類網址包含 /paper/ 的新聞並嵌入原圖</description>
     <language>zh-TW</language>
-    <lastBuildDate>Sun, 22 Nov 2026 09:56:14 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 10:13:23 +0800</lastBuildDate>
     <item>
       <title>金管會祭限空令3.0等5大措施 穩定股市 明起平盤以下禁放空</title>
       <link>https://ec.ltn.com.tw/article/paper/1779371</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779371</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/42.jpg" style="max-width:100%; height:auto;" /></p><p>台股近期大幅波動，金管會昨宣布自11月23日（週一）起禁止平盤以下放空。（資料照）<br><br>〔記者王孟倫／台北報導〕近期台股持續大幅波動，為維持證券市場秩序及穩定性，金管會昨宣布自十一月二十三日（週一）起祭出「限空令三．〇」等五大措施。關鍵措施是禁止平盤以下放空，規定投資人融券賣出及借券賣出上市（櫃）股票及台灣存託憑證時，賣出價格均不得低於前一營業日收盤價；形同直接在平盤價建立「防空網」，避免個股下跌時遭空頭追殺。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/42.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;台股近期大幅波動，金管會昨宣布自11月23日（週一）起禁止平盤以下放空。（資料照）&lt;br&gt;&lt;br&gt;〔記者王孟倫／台北報導〕近期台股持續大幅波動，為維持證券市場秩序及穩定性，金管會昨宣布自十一月二十三日（週一）起祭出「限空令三．〇」等五大措施。關鍵措施是禁止平盤以下放空，規定投資人融券賣出及借券賣出上市（櫃）股票及台灣存託憑證時，賣出價格均不得低於前一營業日收盤價；形同直接在平盤價建立「防空網」，避免個股下跌時遭空頭追殺。&lt;/p&gt;</description>
     </item>
     <item>
       <title>財政部 促公股銀行金援產業</title>
       <link>https://ec.ltn.com.tw/article/paper/1779390</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779390</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/65.jpg" style="max-width:100%; height:auto;" /></p><p>財政部昨日表示，將督導公股銀行以具體行動，積極提供各項金融支援，支持產業轉型升級及對外布局。（財政部）<br><br>〔記者高嘉和／台北報導〕為協助我國企業因應國際政經情勢，強化經營體質及產業競爭力，財政部昨日表示，將督導公股銀行以具體行動，積極提供各項金融支援，支持產業轉型升級及對外布局。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/65.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;財政部昨日表示，將督導公股銀行以具體行動，積極提供各項金融支援，支持產業轉型升級及對外布局。（財政部）&lt;br&gt;&lt;br&gt;〔記者高嘉和／台北報導〕為協助我國企業因應國際政經情勢，強化經營體質及產業競爭力，財政部昨日表示，將督導公股銀行以具體行動，積極提供各項金融支援，支持產業轉型升級及對外布局。&lt;/p&gt;</description>
     </item>
     <item>
       <title>國安基金護盤 台股基本面佳</title>
       <link>https://ec.ltn.com.tw/article/paper/1779388</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779388</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/63.jpg" style="max-width:100%; height:auto;" /></p><p>台股受美股拖累連日崩跌，國安基金信心喊話，強調已進場護盤穩定台股，請投資人保持信心。（資料照）<br><br>〔記者鄭琪芳／台北報導〕國安基金表示，近日受美國AI（人工智慧）監管政策可能趨嚴、龐大資本支出的投資效益變數、特定企業的特殊因素及融資風險等影響，引發市場對AI產業營運展望產生疑慮，導致美股多日重挫，並波及台股及其他亞股；對此，國安基金已進場護盤，維護股市穩定。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/63.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;台股受美股拖累連日崩跌，國安基金信心喊話，強調已進場護盤穩定台股，請投資人保持信心。（資料照）&lt;br&gt;&lt;br&gt;〔記者鄭琪芳／台北報導〕國安基金表示，近日受美國AI（人工智慧）監管政策可能趨嚴、龐大資本支出的投資效益變數、特定企業的特殊因素及融資風險等影響，引發市場對AI產業營運展望產生疑慮，導致美股多日重挫，並波及台股及其他亞股；對此，國安基金已進場護盤，維護股市穩定。&lt;/p&gt;</description>
     </item>
     <item>
       <title>經濟部：企業營運接單有信心</title>
       <link>https://ec.ltn.com.tw/article/paper/1779389</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779389</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/64.jpg" style="max-width:100%; height:auto;" /></p><p>經濟部強調，我國經濟表現優異、動能強勁未受短期波動影響，呼籲對產業發展保持信心。（記者林菁樺攝）<br><br>〔記者林菁樺／台北報導〕面對近期台股連日重挫引發市場關注，經濟部已全面展開產業界訪查。經濟部強調，經徵詢八大工商團體後，相關公會皆明確回應，近期股市表現目前對企業接單及營運未見影響，半導體及電子業者對整體產業前景仍具充分信心。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/64.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;經濟部強調，我國經濟表現優異、動能強勁未受短期波動影響，呼籲對產業發展保持信心。（記者林菁樺攝）&lt;br&gt;&lt;br&gt;〔記者林菁樺／台北報導〕面對近期台股連日重挫引發市場關注，經濟部已全面展開產業界訪查。經濟部強調，經徵詢八大工商團體後，相關公會皆明確回應，近期股市表現目前對企業接單及營運未見影響，半導體及電子業者對整體產業前景仍具充分信心。&lt;/p&gt;</description>
     </item>
     <item>
       <title>美股道瓊、標普陷修正 那指100墜熊市</title>
       <link>https://ec.ltn.com.tw/article/paper/1779391</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779391</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/66.jpg" style="max-width:100%; height:auto;" /></p><p>美國主要指數全面走跌，那斯達克漲幅已全數回吐。（美聯社）<br><br>〔編譯魏國金／綜合報導〕「全村希望」Anthropic上市表現不如預期，加劇市場對人工智慧（AI）題材的疑慮，那斯達克綜合指數週線重挫逾十％，市值蒸發四兆美元，今年迄今該指數下跌二．七％，不僅漲幅全數回吐，還進入負值區間。科技股為主的那斯達克一〇〇指數則從波段最高點跌逾二十％，落入熊市。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/66.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;美國主要指數全面走跌，那斯達克漲幅已全數回吐。（美聯社）&lt;br&gt;&lt;br&gt;〔編譯魏國金／綜合報導〕「全村希望」Anthropic上市表現不如預期，加劇市場對人工智慧（AI）題材的疑慮，那斯達克綜合指數週線重挫逾十％，市值蒸發四兆美元，今年迄今該指數下跌二．七％，不僅漲幅全數回吐，還進入負值區間。科技股為主的那斯達克一〇〇指數則從波段最高點跌逾二十％，落入熊市。&lt;/p&gt;</description>
     </item>
     <item>
       <title>美企海外建AI資料中心 川普揚言徵重稅</title>
       <link>https://ec.ltn.com.tw/article/paper/1779392</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779392</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/67.jpg" style="max-width:100%; height:auto;" /></p><p>川普20日在白宮外舉行記者會，矢言對在海外興建資料中心的美國企業課徵重稅。（彭博）<br><br>〔編譯魏國金／綜合報導〕美國總統川普二十日指出，他將禁止美國企業在海外興建人工智慧（AI）資料中心，以抗衡中國在AI領域的快速進展，他揚言，在美國境外進行相關投資的企業將面臨鉅額稅款。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/67.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;川普20日在白宮外舉行記者會，矢言對在海外興建資料中心的美國企業課徵重稅。（彭博）&lt;br&gt;&lt;br&gt;〔編譯魏國金／綜合報導〕美國總統川普二十日指出，他將禁止美國企業在海外興建人工智慧（AI）資料中心，以抗衡中國在AI領域的快速進展，他揚言，在美國境外進行相關投資的企業將面臨鉅額稅款。&lt;/p&gt;</description>
     </item>
     <item>
       <title>謠言終結站》只有移工懷孕產子有補助？勞動部：假訊息</title>
       <link>https://ec.ltn.com.tw/article/paper/1779393</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779393</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/68.jpg" style="max-width:100%; height:auto;" /></p><p>謠言終結站<br><br>網傳內容：移工懷孕產子勞動部補助5.4萬，台灣人一項都沒有？</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/68.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;謠言終結站&lt;br&gt;&lt;br&gt;網傳內容：移工懷孕產子勞動部補助5.4萬，台灣人一項都沒有？&lt;/p&gt;</description>
     </item>
     <item>
       <title>卓揆4裁示 穩定台股挺產業</title>
       <link>https://ec.ltn.com.tw/article/paper/1779387</link>
       <guid isPermaLink="true">https://ec.ltn.com.tw/article/paper/1779387</guid>
       <pubDate>Sun, 22 Nov 2026 05:30:00 +0800</pubDate>
-      <description><![CDATA[<p><img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/62.jpg" style="max-width:100%; height:auto;" /></p><p>政院長卓榮泰昨日上午聽取財經相關部會報告國際股市及國內資本市場走勢，並做出4點裁示。（行政院提供）<br><br>〔記者鍾麗華／台北報導〕台股連日重挫，為穩定國內資本市場，支持產業穩健發展，行政院長卓榮泰昨日召集財經首長舉行會議做出四點裁示，包括強化企業融資、信用保證支持、國安基金安定市場力道與穩定外匯市場。</p>]]></description>
+      <description>&lt;p&gt;&lt;img src="https://img.ltn.com.tw/Upload/business/page/800/2026/11/22/62.jpg" style="max-width:100%; height:auto;" /&gt;&lt;/p&gt;&lt;p&gt;政院長卓榮泰昨日上午聽取財經相關部會報告國際股市及國內資本市場走勢，並做出4點裁示。（行政院提供）&lt;br&gt;&lt;br&gt;〔記者鍾麗華／台北報導〕台股連日重挫，為穩定國內資本市場，支持產業穩健發展，行政院長卓榮泰昨日召集財經首長舉行會議做出四點裁示，包括強化企業融資、信用保證支持、國安基金安定市場力道與穩定外匯市場。&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>
