@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0">
+  <channel>
+    <title>自由時報 - 藝文副刊</title>
+    <link>https://art.ltn.com.tw/newslist</link>
+    <description>自動擷取自由藝文總列表包含 /paper/ 的副刊、家庭與藝文報紙文章並嵌入原圖</description>
+    <language>zh-TW</language>
+    <lastBuildDate>Sun, 22 Nov 2026 10:57:05 +0800</lastBuildDate>
+  </channel>
+</rss>
