@@ -1,3 +1,4 @@
+import json
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -141,54 +142,84 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
     )
 
 def process_literature_page():
-    """從自由藝文總列表 (newslist) 完整擷取所有包含 /paper/ 的藝文、副刊與家庭版文章"""
+    """從自由藝文頻道 (art.ltn.com.tw) 擷取包含 /paper/ 的副刊、家庭與藝文報紙文章"""
     list_url = "https://art.ltn.com.tw/newslist"
     output_file = "literature_paper.xml"
-    print(f"\n=== 開始處理 [自由藝文與副刊總覽] ({list_url}) ===")
-
-    try:
-        resp = requests.get(list_url, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-    except Exception as e:
-        print(f"[自由藝文] 網頁讀取失敗: {e}")
-        return
-
-    # 移除右側「熱門文章 / 熱門新訊」側邊欄，避免混入舊文章
-    for sidebar in soup.select("div.right, aside, div.hot_news, div.boxTitle"):
-        sidebar.decompose()
+    print(f"\n=== 開始處理 [自由藝文與副刊] ({list_url}) ===")
 
     seen_links = set()
     lit_articles = []
 
-    # 掃描主列表區域中所有包含 /paper/ 的文章連結
-    for a_tag in soup.find_all("a", href=True):
-        href = a_tag["href"].strip()
-        if "/paper/" not in href:
-            continue
-
-        full_url = urljoin(list_url, href)
+    def add_article(title: str, href: str):
+        if not href or "/paper/" not in href:
+            return
+        full_url = urljoin(list_url, href.strip())
         if full_url in seen_links:
-            continue
-
-        title_el = a_tag.find(["h2", "h3", "h4", "p"])
-        title = title_el.get_text(strip=True) if title_el else (a_tag.get("title") or a_tag.get_text(strip=True))
-        
-        if not title or len(title) < 2:
-            continue
-
+            return
+        clean_t = title.strip() if title else ""
+        if len(clean_t) < 2:
+            return
         seen_links.add(full_url)
         lit_articles.append({
-            "title": title,
+            "title": clean_t,
             "link": full_url,
             "pub_date": "",
             "raw_desc": ""
         })
 
-    # 上限 40 篇以完整涵蓋單日報紙副刊與家庭plus文章量
-    lit_articles = lit_articles[:40]
-    print(f"[自由藝文與副刊] 共擷取出 {len(lit_articles)} 篇報紙版文章")
+    # 策略 1：直接向自由藝文列表的 Ajax / JSON 接口請求第一頁資料
+    ajax_candidates = [
+        "https://art.ltn.com.tw/ajax/newslist/1",
+        "https://art.ltn.com.tw/ajax/literaturelist/1",
+        "https://art.ltn.com.tw/api/newslist?page=1",
+    ]
+    for api_url in ajax_candidates:
+        try:
+            r = requests.get(api_url, headers={**HEADERS, "X-Requested-With": "XMLHttpRequest"}, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                items = data if isinstance(data, list) else data.get("data", [])
+                for row in items:
+                    if isinstance(row, dict):
+                        add_article(row.get("title", ""), row.get("url") or row.get("link", ""))
+                if lit_articles:
+                    print(f"[自由藝文] 成功從 Ajax 接口 ({api_url}) 取得 {len(lit_articles)} 篇")
+                    break
+        except Exception:
+            pass
 
+    # 策略 2：若 Ajax 接口格式不同，解析靜態 HTML 中的 JSON-LD 與主列表連結
+    if not lit_articles:
+        try:
+            resp = requests.get(list_url, headers=HEADERS, timeout=15)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            # 2-A：先檢查 <script type="application/ld+json"> 裡的 ItemList
+            for script in soup.find_all("script", type="application/ld+json"):
+                try:
+                    ld_data = json.loads(script.string or "")
+                    if isinstance(ld_data, dict) and "itemListElement" in ld_data:
+                        for el in ld_data["itemListElement"]:
+                            item_obj = el.get("item", el)
+                            add_article(item_obj.get("name", ""), item_obj.get("url", ""))
+                except Exception:
+                    continue
+
+            # 2-B：直接掃描全頁所有 <a> 連結（僅排除明確的右欄 popular/hot 區塊）
+            if not lit_articles:
+                for hot in soup.select("div.hot_news, div.popular, aside"):
+                    hot.decompose()
+                for a_tag in soup.find_all("a", href=True):
+                    title_el = a_tag.find(["h2", "h3", "h4", "p", "span"])
+                    t = title_el.get_text(strip=True) if title_el else (a_tag.get("title") or a_tag.get_text(strip=True))
+                    add_article(t, a_tag["href"])
+
+            print(f"[自由藝文] HTML 原始碼長度: {len(resp.text)} 字元，共解析出 {len(lit_articles)} 篇報紙文章")
+        except Exception as e:
+            print(f"[自由藝文] 網頁讀取失敗: {e}")
+
+    lit_articles = lit_articles[:40]
     build_and_save_rss(
         output_file=output_file,
         title_text="自由時報 - 藝文副刊",
@@ -201,7 +232,7 @@ def main():
     for output_file, (category_name, rss_url) in FEEDS.items():
         process_single_feed(output_file, category_name, rss_url)
     
-    # 執行自由藝文與副刊網頁爬蟲
+    # 獨立執行自由藝文與副刊網頁爬蟲，產出 literature_paper.xml
     process_literature_page()
     print("\n所有分類與藝文副刊 XML 全部更新完成！")
 
