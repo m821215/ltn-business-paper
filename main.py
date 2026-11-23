@@ -2,6 +2,7 @@ import json
 import re
 import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from email.utils import format_datetime
 from urllib.parse import urljoin
@@ -28,6 +29,10 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
+# 使用 Session 重用 HTTPS 連線，加快抓取速度並提升穩定性
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
+
 # 記憶體快取：避免不同分類抓到同一篇文章時重複發送請求
 ARTICLE_CACHE: dict[str, tuple[str, str]] = {}
 
@@ -43,7 +48,7 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         return ARTICLE_CACHE[url]
 
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp = SESSION.get(url, timeout=10)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         
@@ -60,7 +65,7 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         full_summary = "<br><br>".join(clean_texts[:2]) if clean_texts else ""
         
         ARTICLE_CACHE[url] = (img_url, full_summary)
-        time.sleep(0.25)
+        time.sleep(0.1)
         return img_url, full_summary
     except Exception as e:
         print(f"抓取失敗 ({url}): {e}")
@@ -68,7 +73,13 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         return "", ""
 
 def build_and_save_rss(output_file: str, title_text: str, site_link: str, desc_text: str, articles: list[dict]):
-    """共用函式：將整理好的文章列表輸出為標準含圖 XML"""
+    """共用函式：併發預抓圖片並輸出為標準含圖 XML"""
+    # 使用 5 個執行緒併發預抓尚未快取的文章，大幅縮短總執行時間
+    uncached_urls = [art["link"] for art in articles if art["link"] not in ARTICLE_CACHE]
+    if uncached_urls:
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            list(executor.map(fetch_article_details, uncached_urls))
+
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = title_text
@@ -113,7 +124,7 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
     """處理官方 RSS 來源並篩選網址包含 /paper/ 的文章"""
     print(f"\n=== 開始處理 [{category_name}] ({rss_url}) ===")
     try:
-        resp = requests.get(rss_url, headers=HEADERS, timeout=15)
+        resp = SESSION.get(rss_url, timeout=15)
         resp.raise_for_status()
         root = ET.fromstring(resp.content)
     except Exception as e:
@@ -175,7 +186,7 @@ def process_literature_page():
     ]
     for api_url in ajax_candidates:
         try:
-            r = requests.get(api_url, headers={**HEADERS, "X-Requested-With": "XMLHttpRequest"}, timeout=10)
+            r = SESSION.get(api_url, headers={"X-Requested-With": "XMLHttpRequest"}, timeout=10)
             if r.status_code == 200:
                 data = r.json()
                 items = data if isinstance(data, list) else data.get("data", [])
@@ -191,11 +202,10 @@ def process_literature_page():
     # 策略 2：若 Ajax 接口格式不同，解析靜態 HTML 中的 JSON-LD 與主列表連結
     if not lit_articles:
         try:
-            resp = requests.get(list_url, headers=HEADERS, timeout=15)
+            resp = SESSION.get(list_url, timeout=15)
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
-            # 2-A：先檢查 <script type="application/ld+json"> 裡的 ItemList
             for script in soup.find_all("script", type="application/ld+json"):
                 try:
                     ld_data = json.loads(script.string or "")
@@ -206,7 +216,6 @@ def process_literature_page():
                 except Exception:
                     continue
 
-            # 2-B：直接掃描全頁所有 <a> 連結（僅排除明確的右欄 popular/hot 區塊）
             if not lit_articles:
                 for hot in soup.select("div.hot_news, div.popular, aside"):
                     hot.decompose()
@@ -215,7 +224,7 @@ def process_literature_page():
                     t = title_el.get_text(strip=True) if title_el else (a_tag.get("title") or a_tag.get_text(strip=True))
                     add_article(t, a_tag["href"])
 
-            print(f"[自由藝文] HTML 原始碼長度: {len(resp.text)} 字元，共解析出 {len(lit_articles)} 篇報紙文章")
+            print(f"[自由藝文] 共解析出 {len(lit_articles)} 篇報紙文章")
         except Exception as e:
             print(f"[自由藝文] 網頁讀取失敗: {e}")
 
@@ -232,7 +241,6 @@ def main():
     for output_file, (category_name, rss_url) in FEEDS.items():
         process_single_feed(output_file, category_name, rss_url)
     
-    # 獨立執行自由藝文與副刊網頁爬蟲，產出 literature_paper.xml
     process_literature_page()
     print("\n所有分類與藝文副刊 XML 全部更新完成！")
 
