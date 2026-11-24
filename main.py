@@ -29,18 +29,62 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-# 使用 Session 重用 HTTPS 連線，加快抓取速度並提升穩定性
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
 
-# 記憶體快取：避免不同分類抓到同一篇文章時重複發送請求
 ARTICLE_CACHE: dict[str, tuple[str, str]] = {}
 
 def clean_xml_text(text: str) -> str:
-    """移除 XML 1.0 不允許的非法控制字元，避免解析失敗"""
+    """移除 XML 1.0 不允許的非法控制字元"""
     if not text:
         return ""
     return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+
+def sanitize_raw_xml(raw_xml: str) -> str:
+    """預清洗官方 RSS 原始碼：移除非法控制字元並修復未跳脫的裸露 & 符號"""
+    cleaned = clean_xml_text(raw_xml)
+    cleaned = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', cleaned)
+    return cleaned
+
+def parse_rss_items(raw_xml: str) -> list[dict]:
+    """雙重容錯解析器：優先使用標準 ElementTree，若官方 XML 語法損壞則自動降級為寬容解析"""
+    sanitized = sanitize_raw_xml(raw_xml)
+    paper_articles = []
+
+    try:
+        root = ET.fromstring(sanitized.encode("utf-8"))
+        for item in root.findall(".//item"):
+            link = item.findtext("link", "").strip()
+            if "/paper/" in link:
+                paper_articles.append({
+                    "title": item.findtext("title", "無標題").strip(),
+                    "link": link,
+                    "pub_date": item.findtext("pubDate", "").strip(),
+                    "raw_desc": item.findtext("description", "").strip(),
+                })
+        return paper_articles
+    except ET.ParseError:
+        # 備援容錯解析：即使官方 XML 有未閉合標籤或異常字元也能完整救回所有文章
+        soup = BeautifulSoup(sanitized, "html.parser")
+        for item in soup.find_all("item"):
+            link_tag = item.find("link")
+            # html.parser 處理 <link>url</link> 時網址常位於 next_sibling 文字節點
+            link = ""
+            if link_tag:
+                link = link_tag.get_text(strip=True) or (
+                    link_tag.next_sibling.strip() if isinstance(link_tag.next_sibling, str) else ""
+                )
+            if "/paper/" in link:
+                title_tag = item.find("title")
+                pub_tag = item.find("pubdate")
+                desc_tag = item.find("description")
+                paper_articles.append({
+                    "title": title_tag.get_text(strip=True) if title_tag else "無標題",
+                    "link": link,
+                    "pub_date": pub_tag.get_text(strip=True) if pub_tag else "",
+                    "raw_desc": desc_tag.get_text(strip=True) if desc_tag else "",
+                })
+        return paper_articles
 
 def fetch_article_details(url: str) -> tuple[str, str]:
     """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文（相容新聞版與藝文副刊版）"""
@@ -52,11 +96,9 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
         
-        # 擷取新聞主圖
         og_img = soup.find("meta", property="og:image")
         img_url = og_img["content"].strip() if (og_img and og_img.get("content")) else ""
         
-        # 同時支援一般新聞 (div.text p) 與藝文副刊 (div.article_content p) 的內文結構
         paragraphs = soup.select("div.text p, div.article_content p, article p")
         clean_texts = [
             p.get_text(strip=True) for p in paragraphs 
@@ -74,7 +116,6 @@ def fetch_article_details(url: str) -> tuple[str, str]:
 
 def build_and_save_rss(output_file: str, title_text: str, site_link: str, desc_text: str, articles: list[dict]):
     """共用函式：併發預抓圖片並輸出為標準含圖 XML"""
-    # 使用 5 個執行緒併發預抓尚未快取的文章，大幅縮短總執行時間
     uncached_urls = [art["link"] for art in articles if art["link"] not in ARTICLE_CACHE]
     if uncached_urls:
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -126,22 +167,10 @@ def process_single_feed(output_file: str, category_name: str, rss_url: str):
     try:
         resp = SESSION.get(rss_url, timeout=15)
         resp.raise_for_status()
-        root = ET.fromstring(resp.content)
+        paper_articles = parse_rss_items(resp.text)
     except Exception as e:
         print(f"[{category_name}] RSS 讀取失敗: {e}")
         return
-
-    items = root.findall(".//item")
-    paper_articles = []
-    for item in items:
-        link = item.findtext("link", "").strip()
-        if "/paper/" in link:
-            paper_articles.append({
-                "title": item.findtext("title", "無標題").strip(),
-                "link": link,
-                "pub_date": item.findtext("pubDate", "").strip(),
-                "raw_desc": item.findtext("description", "").strip(),
-            })
 
     print(f"[{category_name}] 共篩選出 {len(paper_articles)} 篇報紙新聞")
     build_and_save_rss(
@@ -178,7 +207,6 @@ def process_literature_page():
             "raw_desc": ""
         })
 
-    # 策略 1：直接向自由藝文列表的 Ajax / JSON 接口請求第一頁資料
     ajax_candidates = [
         "https://art.ltn.com.tw/ajax/newslist/1",
         "https://art.ltn.com.tw/ajax/literaturelist/1",
@@ -199,7 +227,6 @@ def process_literature_page():
         except Exception:
             pass
 
-    # 策略 2：若 Ajax 接口格式不同，解析靜態 HTML 中的 JSON-LD 與主列表連結
     if not lit_articles:
         try:
             resp = SESSION.get(list_url, timeout=15)
