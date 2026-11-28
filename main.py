@@ -1,11 +1,12 @@
 import json
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from email.utils import format_datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
@@ -34,6 +35,11 @@ SESSION.headers.update(HEADERS)
 
 ARTICLE_CACHE: dict[str, tuple[str, str]] = {}
 
+def normalize_url(url: str) -> str:
+    """標準化網址（排除協定或尾部斜線差異），用於精準判斷是否為同一篇文章"""
+    parsed = urlparse(url.strip())
+    return f"{parsed.netloc}{parsed.path}".rstrip("/")
+
 def clean_xml_text(text: str) -> str:
     """移除 XML 1.0 不允許的非法控制字元"""
     if not text:
@@ -46,48 +52,74 @@ def sanitize_raw_xml(raw_xml: str) -> str:
     cleaned = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', cleaned)
     return cleaned
 
+def load_existing_items(output_file: str) -> dict[str, dict]:
+    """讀取既有 XML 檔案中的文章紀錄，保留原始 pubDate 並用於比對是否已有相同網址"""
+    existing = {}
+    if not os.path.exists(output_file):
+        return existing
+    try:
+        tree = ET.parse(output_file)
+        for item in tree.findall(".//item"):
+            link = item.findtext("link", "").strip()
+            if link:
+                norm = normalize_url(link)
+                existing[norm] = {
+                    "title": item.findtext("title", "").strip(),
+                    "link": link,
+                    "pub_date": item.findtext("pubDate", "").strip(),
+                    "description": item.findtext("description", "").strip(),
+                }
+    except Exception:
+        pass
+    return existing
+
 def parse_rss_items(raw_xml: str) -> list[dict]:
     """雙重容錯解析器：優先使用標準 ElementTree，若官方 XML 語法損壞則自動降級為寬容解析"""
     sanitized = sanitize_raw_xml(raw_xml)
     paper_articles = []
+    seen_norm = set()
 
     try:
         root = ET.fromstring(sanitized.encode("utf-8"))
         for item in root.findall(".//item"):
             link = item.findtext("link", "").strip()
             if "/paper/" in link:
-                paper_articles.append({
-                    "title": item.findtext("title", "無標題").strip(),
-                    "link": link,
-                    "pub_date": item.findtext("pubDate", "").strip(),
-                    "raw_desc": item.findtext("description", "").strip(),
-                })
+                norm = normalize_url(link)
+                if norm not in seen_norm:
+                    seen_norm.add(norm)
+                    paper_articles.append({
+                        "title": item.findtext("title", "無標題").strip(),
+                        "link": link,
+                        "pub_date": item.findtext("pubDate", "").strip(),
+                        "raw_desc": item.findtext("description", "").strip(),
+                    })
         return paper_articles
     except ET.ParseError:
-        # 備援容錯解析：即使官方 XML 有未閉合標籤或異常字元也能完整救回所有文章
         soup = BeautifulSoup(sanitized, "html.parser")
         for item in soup.find_all("item"):
             link_tag = item.find("link")
-            # html.parser 處理 <link>url</link> 時網址常位於 next_sibling 文字節點
             link = ""
             if link_tag:
                 link = link_tag.get_text(strip=True) or (
                     link_tag.next_sibling.strip() if isinstance(link_tag.next_sibling, str) else ""
                 )
             if "/paper/" in link:
-                title_tag = item.find("title")
-                pub_tag = item.find("pubdate")
-                desc_tag = item.find("description")
-                paper_articles.append({
-                    "title": title_tag.get_text(strip=True) if title_tag else "無標題",
-                    "link": link,
-                    "pub_date": pub_tag.get_text(strip=True) if pub_tag else "",
-                    "raw_desc": desc_tag.get_text(strip=True) if desc_tag else "",
-                })
+                norm = normalize_url(link)
+                if norm not in seen_norm:
+                    seen_norm.add(norm)
+                    title_tag = item.find("title")
+                    pub_tag = item.find("pubdate")
+                    desc_tag = item.find("description")
+                    paper_articles.append({
+                        "title": title_tag.get_text(strip=True) if title_tag else "無標題",
+                        "link": link,
+                        "pub_date": pub_tag.get_text(strip=True) if pub_tag else "",
+                        "raw_desc": desc_tag.get_text(strip=True) if desc_tag else "",
+                    })
         return paper_articles
 
 def fetch_article_details(url: str) -> tuple[str, str]:
-    """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文（相容新聞版與藝文副刊版）"""
+    """進入自由時報網頁抓取封面大圖 (og:image) 與前段內文"""
     if url in ARTICLE_CACHE:
         return ARTICLE_CACHE[url]
 
@@ -115,8 +147,17 @@ def fetch_article_details(url: str) -> tuple[str, str]:
         return "", ""
 
 def build_and_save_rss(output_file: str, title_text: str, site_link: str, desc_text: str, articles: list[dict]):
-    """共用函式：併發預抓圖片並輸出為標準含圖 XML"""
-    uncached_urls = [art["link"] for art in articles if art["link"] not in ARTICLE_CACHE]
+    """比對既有文章網址去重；若無任何新網址則不更新檔案與 lastBuildDate"""
+    existing_map = load_existing_items(output_file)
+
+    # 檢查這次抓到的文章中，是否有「尚未出現在舊 XML 裡的新網址」
+    new_articles = [art for art in articles if normalize_url(art["link"]) not in existing_map]
+    if existing_map and not new_articles:
+        print(f"略過更新 {output_file}（文章網址皆已存在，無新文章，維持原 lastBuildDate）")
+        return
+
+    # 僅針對「新出現的文章」發送併發網頁抓圖請求，已存在的文章直接沿用舊資料
+    uncached_urls = [art["link"] for art in new_articles if art["link"] not in ARTICLE_CACHE]
     if uncached_urls:
         with ThreadPoolExecutor(max_workers=5) as executor:
             list(executor.map(fetch_article_details, uncached_urls))
@@ -132,34 +173,49 @@ def build_and_save_rss(output_file: str, title_text: str, site_link: str, desc_t
     now_rfc822 = format_datetime(datetime.now(tz_tw))
     ET.SubElement(channel, "lastBuildDate").text = now_rfc822
 
+    # 確保輸出清單內網址絕對不重複
+    written_norms = set()
     for art in articles:
-        img_url, rich_summary = fetch_article_details(art["link"])
-        summary_text = clean_xml_text(rich_summary if rich_summary else art.get("raw_desc", ""))
-        clean_title = clean_xml_text(art["title"])
-        
+        norm = normalize_url(art["link"])
+        if norm in written_norms:
+            continue
+        written_norms.add(norm)
+
         item_el = ET.SubElement(channel, "item")
-        ET.SubElement(item_el, "title").text = clean_title
-        ET.SubElement(item_el, "link").text = art["link"]
-        
-        guid = ET.SubElement(item_el, "guid", isPermaLink="true")
-        guid.text = art["link"]
-        
-        pub_date = art.get("pub_date") or now_rfc822
-        ET.SubElement(item_el, "pubDate").text = pub_date
 
-        if img_url:
-            html_body = f'<p><img src="{img_url}" style="max-width:100%; height:auto;" /></p><p>{summary_text}</p>'
+        # 若該網址已存在於舊 XML，直接沿用原本的標題、pubDate 與內文，避免時間戳記變動
+        if norm in existing_map:
+            old = existing_map[norm]
+            ET.SubElement(item_el, "title").text = clean_xml_text(old["title"])
+            ET.SubElement(item_el, "link").text = old["link"]
+            guid = ET.SubElement(item_el, "guid", isPermaLink="true")
+            guid.text = old["link"]
+            ET.SubElement(item_el, "pubDate").text = old["pub_date"] or now_rfc822
+            ET.SubElement(item_el, "description").text = old["description"]
         else:
-            html_body = f'<p>{summary_text}</p>'
+            img_url, rich_summary = fetch_article_details(art["link"])
+            summary_text = clean_xml_text(rich_summary if rich_summary else art.get("raw_desc", ""))
+            clean_title = clean_xml_text(art["title"])
 
-        ET.SubElement(item_el, "description").text = html_body
+            ET.SubElement(item_el, "title").text = clean_title
+            ET.SubElement(item_el, "link").text = art["link"]
+            guid = ET.SubElement(item_el, "guid", isPermaLink="true")
+            guid.text = art["link"]
+            pub_date = art.get("pub_date") or now_rfc822
+            ET.SubElement(item_el, "pubDate").text = pub_date
+
+            if img_url:
+                html_body = f'<p><img src="{img_url}" style="max-width:100%; height:auto;" /></p><p>{summary_text}</p>'
+            else:
+                html_body = f'<p>{summary_text}</p>'
+            ET.SubElement(item_el, "description").text = html_body
 
     ET.indent(rss, space="  ", level=0)
     xml_bytes = ET.tostring(rss, encoding="utf-8", xml_declaration=True)
 
     with open(output_file, "wb") as f:
         f.write(xml_bytes)
-    print(f"已儲存為 {output_file}（共 {len(articles)} 篇）")
+    print(f"已更新 {output_file}（新增 {len(new_articles)} 篇，共 {len(written_norms)} 篇）")
 
 def process_single_feed(output_file: str, category_name: str, rss_url: str):
     """處理官方 RSS 來源並篩選網址包含 /paper/ 的文章"""
@@ -187,19 +243,20 @@ def process_literature_page():
     output_file = "literature_paper.xml"
     print(f"\n=== 開始處理 [自由藝文與副刊] ({list_url}) ===")
 
-    seen_links = set()
+    seen_norms = set()
     lit_articles = []
 
     def add_article(title: str, href: str):
         if not href or "/paper/" not in href:
             return
         full_url = urljoin(list_url, href.strip())
-        if full_url in seen_links:
+        norm = normalize_url(full_url)
+        if norm in seen_norms:
             return
         clean_t = title.strip() if title else ""
         if len(clean_t) < 2:
             return
-        seen_links.add(full_url)
+        seen_norms.add(norm)
         lit_articles.append({
             "title": clean_t,
             "link": full_url,
